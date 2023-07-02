@@ -1,0 +1,26 @@
+.container {
+    background: black;
+
+    display: flex;
+    justify-items: center;
+    align-items: center;
+
+    flex-direction: column;
+
+    width: 100%;
+    height: 100vh;
+}
+
+.game-bar {
+    color: #FFF;
+    display: flex;
+    gap: 10px;
+}
+
+.game-bar span {
+    font-size: 2em;
+}
+
+canvas {
+    margin: auto;
+}
