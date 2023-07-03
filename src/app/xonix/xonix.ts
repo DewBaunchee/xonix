@@ -152,13 +152,7 @@ export class XonixGame {
             ctx.fillRect(x * cellWidth, y * cellHeight, cellWidth, cellHeight);
         });
 
-        this.level.entities.forEach(entity => {
-            const {xRounded, yRounded} = entity.position;
-            ctx.fillStyle = entity.color;
-            ctx.fillRect(xRounded * cellWidth, yRounded * cellHeight, cellWidth, cellHeight);
-        });
-
-        // TODO Image Data caching
+        this.level.entities.forEach(entity => entity.draw(ctx, cellWidth, cellHeight));
     }
 }
 
@@ -197,11 +191,34 @@ interface Collision {
     collidedEntity?: Entity;
 }
 
+const drawCircle = (ctx: Ctx, fill: string, x: number, y: number, radius: number) => {
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, 2 * Math.PI, false);
+    ctx.fill();
+};
+
+const drawRhombus = (ctx: Ctx, fill: string, x: number, y: number, width: number, height: number) => {
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.moveTo(x + width / 2, y); // Top
+    ctx.lineTo(x + width, y + height / 2); // Right
+    ctx.lineTo(x + width / 2, y + height); // Bottom
+    ctx.lineTo(x, y + height / 2); // Left
+    ctx.fill();
+};
+
 abstract class Entity {
     public position = new XY();
     public direction = new XY();
     public speed = 0;
     public color = "#000";
+
+    public draw(ctx: Ctx, cellWidth: number, cellHeight: number) {
+        const {xRounded, yRounded} = this.position;
+        ctx.fillStyle = this.color;
+        ctx.fillRect(xRounded * cellWidth, yRounded * cellHeight, cellWidth, cellHeight);
+    }
 
     public update(delta: number, level: XonixLevel) {
         const deltaSpeed = this.speed * delta;
@@ -339,6 +356,16 @@ class Player extends Entity {
 
 class Enemy extends Entity {
 
+    override draw(ctx: Ctx, cellWidth: number, cellHeight: number) {
+        const {xRounded, yRounded} = this.position;
+        drawCircle(
+            ctx, this.color,
+            xRounded * cellWidth + cellWidth / 2,
+            yRounded * cellHeight + cellHeight / 2,
+            cellWidth / 2
+        );
+    }
+
     protected onCollision(level: XonixLevel, collision: Collision): void {
         const {x, y} = collision;
         const collidedState = collision.collidedCellState;
@@ -362,6 +389,16 @@ class Enemy extends Entity {
 }
 
 class Destroyer extends Enemy {
+
+    override draw(ctx: Ctx, cellWidth: number, cellHeight: number) {
+        const {xRounded, yRounded} = this.position;
+        drawRhombus(
+            ctx, this.color,
+            xRounded * cellWidth,
+            yRounded * cellHeight,
+            cellWidth, cellHeight
+        );
+    }
 
     protected override onCollision(level: XonixLevel, collision: Collision) {
         super.onCollision(level, collision);
