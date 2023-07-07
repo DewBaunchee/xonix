@@ -1,8 +1,0 @@
-<div class="container">
-    <div class="game-bar">
-        <span>{{game.level.player.lives}}</span>
-        <span>{{(game.level.field.claimedRatio() * 100) | number: "1.2-2"}}%</span>
-        <span>{{game.level.timer.toString()}}</span>
-    </div>
-    <canvas #canvas width="1000" height="500"></canvas>
-</div>

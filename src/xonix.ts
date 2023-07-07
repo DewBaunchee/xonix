@@ -1,6 +1,3 @@
-import {Subject} from "rxjs";
-import {formatDate} from "@angular/common";
-
 declare type Timeout = NodeJS.Timeout;
 declare type Interval = NodeJS.Timeout;
 declare type Ctx = CanvasRenderingContext2D;
@@ -15,6 +12,8 @@ export class XonixGame {
     private lastUpdate: number = 0;
     private nextUpdate?: Timeout;
     private paused = false;
+
+    private _onUpdate?: () => void;
 
     constructor() {
         this.setUpdateIntervalFromFPS(30);
@@ -34,6 +33,10 @@ export class XonixGame {
 
     public isStopped() {
         return !this.isRunning() && !this.isPaused();
+    }
+
+    public onUpdate(subscriber: () => void) {
+        this._onUpdate = subscriber;
     }
 
     public start(level: XonixLevel) {
@@ -113,6 +116,7 @@ export class XonixGame {
 
         if (this.ctx) {
             this.update(delta);
+            this._onUpdate?.();
             this.draw(this.ctx);
         }
 
@@ -413,7 +417,7 @@ class XonixField {
 
     private readonly cells: CellState[] = [];
     private readonly couldClaim: boolean[] = [];
-    private readonly cellCount: number[] = new Array(Object.values(CellState).length / 2).fill(0);
+    private readonly cellCount: number[] = new Array(Object.keys(CellState).length / 2).fill(0);
 
     constructor(
         public readonly width: number,
@@ -555,9 +559,9 @@ export class XonixLevel {
 
     public defaultPlayerPosition = new XY();
 
-    private readonly _win = new Subject();
-    private readonly _die = new Subject();
-    private readonly _lose = new Subject();
+    private _onWin?: () => void;
+    private _onDie?: () => void;
+    private _onLose?: () => void;
 
     public countdownTime?: number;
     public readonly timer: XonixTimer = new XonixTimer();
@@ -575,7 +579,7 @@ export class XonixLevel {
             }
         });
         this.player.color = "blue";
-        this.timer.onTimeUp().subscribe(() => this.lose())
+        this.timer.onTimeUp(() => this.lose())
     }
 
     public static builder() {
@@ -595,12 +599,12 @@ export class XonixLevel {
     }
 
     private win() {
-        this._win.next(void 0);
+        this._onWin?.();
     }
 
     public die() {
         this.player.lives--;
-        this._die.next(void 0);
+        this._onDie?.();
         this.player.speed = 0;
         this.player.position.setFrom(this.defaultPlayerPosition);
         this.field.clearClaiming();
@@ -610,19 +614,19 @@ export class XonixLevel {
     }
 
     private lose() {
-        this._lose.next(void 0);
+        this._onLose?.();
     }
 
-    public onWin() {
-        return this._win.asObservable();
+    public onWin(subscriber: () => void) {
+        this._onWin = subscriber;
     }
 
-    public onDie() {
-        return this._die.asObservable();
+    public onDie(subscriber: () => void) {
+        this._onDie = subscriber;
     }
 
-    public onLose() {
-        return this._lose.asObservable();
+    public onLose(subscriber: () => void) {
+        this._onLose = subscriber;
     }
 
     public getColor(cellState: CellState) {
@@ -638,6 +642,11 @@ export class XonixLevel {
         if (claimRatio > this.claimRatioWin) {
             this.win();
         }
+    }
+
+    public also(func: (level: XonixLevel) => void) {
+        func(this);
+        return this;
     }
 }
 
@@ -719,7 +728,7 @@ class XonixTimer {
     private interval?: Interval;
     private paused = false;
 
-    private readonly _onTimeUp = new Subject<void>();
+    private _onTimeUp?: () => void;
 
     public start(countdown = false, startSeconds = 0) {
         if (this.paused) {
@@ -736,7 +745,7 @@ class XonixTimer {
 
             this.seconds += increment;
             if (countdown && this.seconds < 0) {
-                this._onTimeUp.next();
+                this._onTimeUp?.();
                 this.pause();
             }
         }, 1000)
@@ -755,15 +764,13 @@ class XonixTimer {
         clearInterval(this.interval);
     }
 
-    public onTimeUp() {
-        return this._onTimeUp.asObservable();
+    public onTimeUp(subscriber: () => void) {
+        this._onTimeUp = subscriber;
     }
 
     public toString() {
-        return formatDate(
-            Math.max(0, this.seconds) * 1000,
-            "mm:ss",
-            "en"
-        );
+        const milliseconds = Math.max(0, this.seconds) * 1000;
+        const time = new Date(milliseconds);
+        return time.toLocaleTimeString("en", {minute: '2-digit', second:'2-digit'});
     }
 }
